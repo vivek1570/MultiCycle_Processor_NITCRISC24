@@ -23,7 +23,7 @@ module mips(clk,reset);
 	control control_D(clk, reset,Op, Zero, IorD, MemRead, MemWrite, MemtoReg,
 	IRWrite, PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
 
-	alucontrol alucontrol_D(ALUOp, cz, ALUCtrl);
+	alucontrol alucontrol_D(ALUOp, cz,Op, ALUCtrl);
 
 	datapath  datapath_D(clk, reset,IorD, MemRead, MemWrite, MemtoReg, IRWrite, PCSource,
 	ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
@@ -31,17 +31,18 @@ module mips(clk,reset);
 endmodule
 
 
-module alucontrol(AluOp,FnField,AluCtrl);
+module alucontrol(AluOp,cz,Op,AluCtrl);
 
 input [1:0] AluOp;
-input [1:0] FnField; //for R-type instruction
+input [1:0] cz; //for R-type instruction
+input [3:0] Op;
 
 output reg [3:0] AluCtrl;
 
 
-always@(AluOp or FnField)begin
+always@(AluOp or cz or Op)begin
     
-	casex({AluOp,FnField})
+	casex({AluOp,cz})
 		4'b00_xx:AluCtrl=4'b0010; //lw / sw
 		4'b01_xx:AluCtrl=4'b0110; //beq
 		4'b1x_xx:AluCtrl=4'b0010; //add
@@ -49,7 +50,13 @@ always@(AluOp or FnField)begin
 		4'b1x_xx:AluCtrl=4'b0000; //and
 		4'b1x_xx:AluCtrl=4'b0001; //or
 		4'b1x_xx:AluCtrl=4'b0111; //slt
+		// $display("hello from Aluop cz");
 	endcase
+	if(Op==4'b0010) begin
+		$display("hello guys");
+		AluCtrl=4'b1000; //for nand
+	end
+
 end
 
 endmodule
@@ -241,10 +248,13 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 	wire [15:0] da;//read data 1
 	wire [15:0] db;//read data 2
 
+	//carry flag and zero_flag
+	reg Carry, ZeroFlag; 
+
 	reg[15:0]registers[7:0];
   initial begin
         registers[0] = PCSTART;  // Initialize R0
-        registers[1] = 16'h0005;  // Initialize R1
+        registers[1] = 16'h0003;  // Initialize R1
         registers[2] = 16'h0006;  // Initialize R2
         registers[3] = 16'h0003;  // Initialize R3
         registers[4] = 16'h0006;  // Initialize R4
@@ -257,8 +267,8 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 
 always @(posedge clk or posedge reset) begin
         if(RegWrite) begin
-        $display("At time %0t, registers[3] = %d", $time, registers[3]);
-				$display("At time %0t, registers[2] = %d", $time, registers[2]);
+        $display("At time %0t, registers[5] = %d", $time, registers[5]);
+				// $display("At time %0t, registers[3] = %d", $time, registers[3]);
 				end
 				// $display("At time %0t,ALUout= %d", $time,ALUOut);
     end
@@ -326,7 +336,21 @@ always @(posedge clk or posedge reset) begin
 	always @(posedge clk) begin
 		if (RegWrite)begin
 			if (RegDst)
-				registers[Instruction[5:3]]<=(MemtoReg)?mdr:ALUOut;
+			begin
+			// 	if ((Op == 4'b0000) && (cz == 2'b00)) begin
+    	// 	registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// end
+			// else if ((Op == 4'b0000) && (cz == 2'b10) && Carry) begin
+			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// end
+			// else if ((Op == 4'b0010) && (cz == 2'b00)) begin
+			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// end
+			// else if ((Op == 4'b0010) && (cz == 2'b01) && Carry) begin
+			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// end
+				registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			end
 			else
 				registers[Instruction[8:6]]<=(MemtoReg)?mdr:ALUOut;
 		end
@@ -372,16 +396,28 @@ always @(posedge clk or posedge reset) begin
 		4'b0000:ALUResult = OpA & OpB;
 		4'b0001:ALUResult = OpA | OpB;
 		4'b0010:begin
-		ALUResult = OpA + OpB;
+		{Carry,ALUResult} = OpA + OpB;
+		ZeroFlag = (ALUResult == 0);
 		if(Op==4'b1010)
 		begin
-		ALUResult= A+ OpB;
+		{Carry,ALUResult}= A+ OpB;
+		ZeroFlag= (ALUResult == 0);
 		end
+		$display("hello OP value=%d",Instruction[15:12]);
 		end
 		4'b0110:ALUResult = OpA - OpB;
 		4'b0111:ALUResult = OpA < OpB?1:0;
 		4'b1100:ALUResult = ~(OpA | OpB);
 		endcase
+		case(Instruction[15:12])
+		4'b0010:begin
+			$display("in ndu");
+			ALUResult = ~(OpA & OpB);
+		$display("Opa=%d OpB=%d Aluresult=%d",OpA,OpB,ALUResult);
+		ZeroFlag = (ALUResult == 0);
+		end
+		endcase
+
 		
 	end
 
