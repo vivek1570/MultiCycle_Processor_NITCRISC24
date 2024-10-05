@@ -1,5 +1,5 @@
-a884 // lw r4,r2,7   1010 1000 1000 0100
-0298 // add r3,r1,r2 0000 0010 1001 1000
+a888 // lw r4,r2,8   1010 1000 1000 1000  here r4+8 and add  and calculate the value in that add add and add into r2
+0298 // add r3,r1,r2 0000 0010 1001 1000 here r2+r1 and store in r3
 0ba0 // add r4,r5,r6 0000 1011 1010 0000
 0000
 0000
@@ -12,7 +12,7 @@ a884 // lw r4,r2,7   1010 1000 1000 0100
 0001
 0002
 000a
-000b
+000d
 000c
 0003
 0006

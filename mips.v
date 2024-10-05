@@ -164,7 +164,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
           begin
 						$display("current state at %0t =MEMREADEND\n",$time);
             RegWrite = 1'b1;
-	    MemtoReg = 1'b1;
+	    			MemtoReg = 1'b1;
             RegDst = 1'b0;
           end
         MEMACCESSS:
@@ -245,9 +245,9 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
   initial begin
         registers[0] = PCSTART;  // Initialize R0
         registers[1] = 16'h0005;  // Initialize R1
-        registers[2] = 16'h0007;  // Initialize R2
+        registers[2] = 16'h0006;  // Initialize R2
         registers[3] = 16'h0003;  // Initialize R3
-        registers[4] = 16'h0004;  // Initialize R4
+        registers[4] = 16'h0006;  // Initialize R4
         registers[5] = 16'h0005;  // Initialize R5
         registers[6] = 16'h0006;  // Initialize R6
         registers[7] = 16'h0007;  // Initialize R7
@@ -258,7 +258,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 always @(posedge clk or posedge reset) begin
         if(RegWrite) begin
         $display("At time %0t, registers[3] = %d", $time, registers[3]);
-				$display("At time %0t, registers[4] = %d", $time, registers[4]);
+				$display("At time %0t, registers[2] = %d", $time, registers[2]);
 				end
 				// $display("At time %0t,ALUout= %d", $time,ALUOut);
     end
@@ -318,7 +318,8 @@ always @(posedge clk or posedge reset) begin
         // $display("At time %0t, registers[3] = %h", $time, registers[3]);
 					// $display("At time %0t,RA= %d", $time,da);
 					// if(Instruction[8:6]!=0)
-					// $display("At time %0t,RB= %d", $time,db);
+					// $display("At time %0t,db= %d da=%d\n", $time,db,da);
+					// $display("At time %0t,OPB= %d ", $time,OpB);
     end
 
 
@@ -350,7 +351,12 @@ always @(posedge clk or posedge reset) begin
 		casex(ALUSrcB)
 		2'b00:OpB=B;
 		2'b01:OpB=1;
-		2'b1x:OpB={{(10){Instruction[5]}},Instruction[5:0]};
+		2'b10:begin
+		OpB={{(10){Instruction[5]}},Instruction[5:0]};
+		// $display("OpB=%d OpA=%d A=%d ALusrcA=%d",OpB,OpA,A,ALUSrcA);
+		end
+		2'b11:OpB={{(10){Instruction[5]}},Instruction[5:0]};
+		
 		endcase
 	end
 
@@ -365,11 +371,18 @@ always @(posedge clk or posedge reset) begin
 		case(ALUCtrl)
 		4'b0000:ALUResult = OpA & OpB;
 		4'b0001:ALUResult = OpA | OpB;
-		4'b0010:ALUResult = OpA + OpB;
+		4'b0010:begin
+		ALUResult = OpA + OpB;
+		if(Op==4'b1010)
+		begin
+		ALUResult= A+ OpB;
+		end
+		end
 		4'b0110:ALUResult = OpA - OpB;
 		4'b0111:ALUResult = OpA < OpB?1:0;
 		4'b1100:ALUResult = ~(OpA | OpB);
 		endcase
+		
 	end
 
 	//ALUOut register
