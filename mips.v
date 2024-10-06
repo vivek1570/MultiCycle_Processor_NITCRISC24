@@ -52,10 +52,11 @@ always@(AluOp or cz or Op)begin
 		4'b1x_xx:AluCtrl=4'b0111; //slt
 		// $display("hello from Aluop cz");
 	endcase
-	if(Op==4'b0010) begin
-		$display("hello guys");
+	case(Op)
+	4'b0010:begin
 		AluCtrl=4'b1000; //for nand
 	end
+	endcase
 
 end
 
@@ -258,8 +259,8 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
         registers[2] = 16'h0006;  // Initialize R2
         registers[3] = 16'h0003;  // Initialize R3
         registers[4] = 16'h0006;  // Initialize R4
-        registers[5] = 16'h0005;  // Initialize R5
-        registers[6] = 16'h0006;  // Initialize R6
+        registers[5] = 16'hffff;  // Initialize R5
+        registers[6] = 16'h0003;  // Initialize R6
         registers[7] = 16'h0007;  // Initialize R7
     end
 
@@ -267,8 +268,11 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 
 always @(posedge clk or posedge reset) begin
         if(RegWrite) begin
-        $display("At time %0t, registers[5] = %d", $time, registers[5]);
+        // $display("At time %0t, registers[5] = %d", $time, registers[5]);
 				// $display("At time %0t, registers[3] = %d", $time, registers[3]);
+				// $display("At time %0t, registers[2] = %d", $time, registers[2]);
+				// $display("At time %0t, registers[4] = %d", $time, registers[4]);
+				$display("At time %0t, registers[1] = %d", $time, registers[1]);
 				end
 				// $display("At time %0t,ALUout= %d", $time,ALUOut);
     end
@@ -330,6 +334,7 @@ always @(posedge clk or posedge reset) begin
 					// if(Instruction[8:6]!=0)
 					// $display("At time %0t,db= %d da=%d\n", $time,db,da);
 					// $display("At time %0t,OPB= %d ", $time,OpB);
+					// $display("regwrite=%d regdst=%d",RegWrite,RegDst);
     end
 
 
@@ -337,22 +342,57 @@ always @(posedge clk or posedge reset) begin
 		if (RegWrite)begin
 			if (RegDst)
 			begin
+				$display("op=%d  cz=%d",Op,cz);
+				case(Op)
+				4'b0000:
+				begin
+					case(cz)
+						2'b00:registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+						2'b10:
+						begin
+								$display("carry=%d ",Carry);
+								if(Carry==1'b1)begin
+								registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+								end
+						end
+					endcase
+				end
+				4'b0010:
+				begin
+					case(cz)
+						2'b00:registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+						2'b01:
+						begin
+								if(Carry==1'b1)
+								registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+						end
+					endcase
+				end
+				endcase
+
 			// 	if ((Op == 4'b0000) && (cz == 2'b00)) begin
+			// 		$display("at 1");
     	// 	registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 			// end
-			// else if ((Op == 4'b0000) && (cz == 2'b10) && Carry) begin
+			// else if ((Op == 4'b0000) && (cz == 2'b10) && (Carry==1'b1)) begin
+			// 	$display("at 2");
 			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 			// end
 			// else if ((Op == 4'b0010) && (cz == 2'b00)) begin
+			// 	$display("at 3");
 			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 			// end
-			// else if ((Op == 4'b0010) && (cz == 2'b01) && Carry) begin
+			// else if ((Op == 4'b0010) && (cz == 2'b01) && (Carry==1'b1)) begin
+			// 	$display("at 4");
 			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 			// end
-				registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// $display("in regdst %d %d",ALUOut,MemtoReg);
+			// 	registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
+			// $display("registers[Instruction[5:3]]=%d",registers[Instruction[5:3]]);
 			end
-			else
+			else begin
 				registers[Instruction[8:6]]<=(MemtoReg)?mdr:ALUOut;
+			end
 		end
 	end
 
@@ -396,27 +436,34 @@ always @(posedge clk or posedge reset) begin
 		4'b0000:ALUResult = OpA & OpB;
 		4'b0001:ALUResult = OpA | OpB;
 		4'b0010:begin
-		{Carry,ALUResult} = OpA + OpB;
+		{ALUResult} = OpA + OpB;
+		if(ALUSrcA==1)begin
+		Carry = (OpA) >= 16'hFFFF;
+		end
 		ZeroFlag = (ALUResult == 0);
 		if(Op==4'b1010)
 		begin
 		{Carry,ALUResult}= A+ OpB;
 		ZeroFlag= (ALUResult == 0);
 		end
-		$display("hello OP value=%d",Instruction[15:12]);
+		// $display("hello OP value=%d",Instruction[15:12]);
 		end
 		4'b0110:ALUResult = OpA - OpB;
 		4'b0111:ALUResult = OpA < OpB?1:0;
 		4'b1100:ALUResult = ~(OpA | OpB);
-		endcase
-		case(Instruction[15:12])
-		4'b0010:begin
-			$display("in ndu");
+		4'b1000:begin
 			ALUResult = ~(OpA & OpB);
-		$display("Opa=%d OpB=%d Aluresult=%d",OpA,OpB,ALUResult);
 		ZeroFlag = (ALUResult == 0);
 		end
 		endcase
+		// case(Instruction[15:12])
+		// 4'b0010:begin
+		// 	$display("in ndu");
+		// 	ALUResult = ~(OpA & OpB);
+		// $display("Opa=%d OpB=%d Aluresult=%d",OpA,OpB,ALUResult);
+		// ZeroFlag = (ALUResult == 0);
+		// end
+		// endcase
 
 		
 	end

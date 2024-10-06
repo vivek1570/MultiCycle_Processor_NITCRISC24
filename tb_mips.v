@@ -14,7 +14,7 @@ module tb_mips;
 
 	#10 reset=0;
 
-	#100 $finish;
+	#120 $finish;
 	end
 
 endmodule
