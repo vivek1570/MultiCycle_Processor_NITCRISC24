@@ -9,7 +9,7 @@ module mips(clk,reset);
 	wire MemWrite;
 	wire MemToReg;
 	wire IRWrite;
-	wire PCSource;
+	wire [1:0]PCSource;
 	wire [1:0] ALUSrcB;
 	wire ALUSrcA;
 	wire RegWrite;
@@ -75,7 +75,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
 	output reg MemRead;
 	output reg MemtoReg;
 	output reg IRWrite;
-	output reg PCSource;
+	output reg [1:0]PCSource;
 	output reg RegDst;
 	output reg RegWrite;
 	output reg ALUSrcA;
@@ -99,6 +99,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
 	parameter EXECUTION = 4'b0110;
 	parameter RTYPEEND = 4'b0111;
 	parameter BEQ = 4'b1000;
+	parameter JUMP=4'b1001;
 
 	reg [3:0] state;
 	reg [3:0] nextstate;
@@ -140,6 +141,9 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
                    4'b1011:	begin
 											nextstate = BEQ;//BEQ
 									 end
+									 4'b1101:begin
+											nextstate=JUMP;
+									 end
                    default: nextstate = FETCH;
                  endcase
         MEMADRCOMP:  case(Op)
@@ -153,6 +157,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
         EXECUTION: nextstate = RTYPEEND;
         RTYPEEND: nextstate = FETCH;
         BEQ:   nextstate = FETCH;
+				JUMP: nextstate=FETCH;
         default: nextstate = FETCH;
       endcase
     end
@@ -160,7 +165,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
 
 	always@(state) begin
 
-	IorD=1'b0; MemRead=1'b0; MemWrite=1'b0; MemtoReg=1'b0; IRWrite=1'b0; PCSource=1'b0;
+	IorD=1'b0; MemRead=1'b0; MemWrite=1'b0; MemtoReg=1'b0; IRWrite=1'b0; PCSource=2'b00;
 	ALUSrcB=2'b00; ALUSrcA=1'b0; RegWrite=1'b0; RegDst=1'b0; PCWrite=1'b0; PCWriteCond=1'b0; ALUOp=2'b00;
     	case (state)
         FETCH:
@@ -221,6 +226,12 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
             PCWriteCond = 1'b1;
 	    			PCSource = 2'b01;
           end
+					JUMP:
+					begin
+						$display("current state at %0t =JUMP\n",$time);
+						PCSource=2'b10;
+						PCWrite=1'b1;
+					end
       endcase
     end
 endmodule
@@ -234,7 +245,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 	input IorD;
 	input MemWrite,MemRead,MemtoReg;
 	input IRWrite;
-	input PCSource;
+	input [1:0]PCSource;
 	input RegDst,RegWrite;
 	input ALUSrcA;
 	input [1:0] ALUSrcB;
@@ -274,7 +285,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
 
 	reg[15:0]registers[7:0];
   initial begin
-        registers[0] = PCSTART;  // Initialize R0
+        registers[0] = PC;  // Initialize R0
         registers[1] = 16'h0003;  // Initialize R1
         registers[2] = 16'h0007;  // Initialize R2
         registers[3] = 16'h0003;  // Initialize R3
@@ -295,6 +306,8 @@ always @(posedge clk or posedge reset) begin
 				// $display("At time %0t, registers[1] = %d", $time, registers[1]);
 				end
 				// $display("At time %0t,ALUout= %d", $time,ALUOut);
+				$display("PC=%d",registers[0]);
+				$display("r3=%d",registers[3]);
     end
 
 
@@ -309,6 +322,8 @@ always @(posedge clk or posedge reset) begin
 	end
 
 	always @(posedge clk) begin
+		//for always updating PC value
+		registers[0] = PC;
 		if(MemWrite)
 			mem[address]<=B;
 	end
@@ -326,8 +341,15 @@ always @(posedge clk or posedge reset) begin
 		else
 		if(PCSel)begin
 			case (PCSource)
-				1'b0: PC<=ALUResult;
-				1'b1: PC<=ALUOut;
+				2'b00: PC<=ALUResult;
+				2'b01: PC<=ALUOut;
+				// 2'b10:PC<={{(7){Instruction[5]}},Instruction[8:0]};
+				2'b10:begin
+					$display("hello from jump");
+					PC=PC+Instruction[8:0];
+					$display("PC=%d instr[8:0]=%d",PC,Instruction[8:0]);
+					registers[Instruction[11:9]]=PC+1;
+				end
 			endcase
 		end
 	end
@@ -349,16 +371,6 @@ always @(posedge clk or posedge reset) begin
 	//$r0 is always 0
 	assign da = (Instruction[11:9]!=0) ? registers[Instruction[11:9]] : 0;
 	assign db = (Instruction[8:6]!=0) ? registers[Instruction[8:6]] : 0;
-
-	always @(posedge clk or posedge reset) begin
-        
-        // $display("At time %0t, registers[3] = %h", $time, registers[3]);
-					// $display("At time %0t,RA= %d", $time,da);
-					// if(Instruction[8:6]!=0)
-					// $display("At time %0t,db= %d da=%d\n", $time,db,da);
-					// $display("At time %0t,OPB= %d ", $time,OpB);
-					// $display("regwrite=%d regdst=%d",RegWrite,RegDst);
-    end
 
 
 	always @(posedge clk) begin
@@ -392,26 +404,6 @@ always @(posedge clk or posedge reset) begin
 					endcase
 				end
 				endcase
-
-			// 	if ((Op == 4'b0000) && (cz == 2'b00)) begin
-			// 		$display("at 1");
-    	// 	registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
-			// end
-			// else if ((Op == 4'b0000) && (cz == 2'b10) && (Carry==1'b1)) begin
-			// 	$display("at 2");
-			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
-			// end
-			// else if ((Op == 4'b0010) && (cz == 2'b00)) begin
-			// 	$display("at 3");
-			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
-			// end
-			// else if ((Op == 4'b0010) && (cz == 2'b01) && (Carry==1'b1)) begin
-			// 	$display("at 4");
-			// 		registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
-			// end
-			// $display("in regdst %d %d",ALUOut,MemtoReg);
-			// 	registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
-			// $display("registers[Instruction[5:3]]=%d",registers[Instruction[5:3]]);
 			end
 			else begin
 				registers[Instruction[8:6]]<=(MemtoReg)?mdr:ALUOut;
@@ -443,23 +435,18 @@ always @(posedge clk or posedge reset) begin
 		// $display("OpB=%d OpA=%d A=%d ALusrcA=%d",OpB,OpA,A,ALUSrcA);
 		end
 		2'b11:OpB={{(10){Instruction[5]}},Instruction[5:0]};
-		
 		endcase
 	end
 
 	assign Zero = (ALUResult==0);//Zero == 1 when ALUResult is 0 (for branch)
 
-  //ALU logic is mainly working in here
-  /*
-
-  */
 
 	always @(ALUCtrl or OpA or OpB) begin
 		case(ALUCtrl)
 		4'b0000:ALUResult = OpA & OpB;
 		4'b0001:ALUResult = OpA | OpB;
 		4'b0010:begin
-		{ALUResult} = OpA + OpB;
+		ALUResult = OpA + OpB;
 		if(ALUSrcA==1)begin
 		Carry = (OpA) >= 16'hFFFF;
 		end
@@ -479,14 +466,6 @@ always @(posedge clk or posedge reset) begin
 		ZeroFlag = (ALUResult == 0);
 		end
 		endcase
-		// case(Instruction[15:12])
-		// 4'b0010:begin
-		// 	$display("in ndu");
-		// 	ALUResult = ~(OpA & OpB);
-		// $display("Opa=%d OpB=%d Aluresult=%d",OpA,OpB,ALUResult);
-		// ZeroFlag = (ALUResult == 0);
-		// end
-		// endcase
 
 		
 	end
