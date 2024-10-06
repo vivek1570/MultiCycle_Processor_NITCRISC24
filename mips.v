@@ -112,14 +112,34 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
 
 	always@(state or Op) begin
       	case (state)
-        FETCH:  nextstate = DECODE;
+        FETCH:  begin
+						nextstate = DECODE;
+						case(Op)
+						4'b1010:$display("Instr=> LW");
+						4'b1001:$display("Instr=> SW");
+						4'b0000:$display("ADD or ADC");
+						4'b0010:$display("NDu or NDZ");
+						4'b1011:$display("beq");
+						endcase
+				end
+				
         DECODE:  case(Op)
 					//OpCode
-                   4'b1010:	nextstate = MEMADRCOMP;//LW
-                   4'b1001:	nextstate = MEMADRCOMP;//SW
-                   4'b0000: nextstate = EXECUTION; // ADD or ADC or NDU or NDZ
-									 4'b0010: nextstate = EXECUTION; // ADD or ADC or NDU or NDZ
-                   4'b1011:	nextstate = BEQ;//BEQ
+                   4'b1010:	begin
+										nextstate = MEMADRCOMP;//LW
+									 end
+                   4'b1001:	begin
+											nextstate = MEMADRCOMP;//SW
+									 end
+                   4'b0000: begin
+											nextstate = EXECUTION; // ADD or ADC
+									 end
+									 4'b0010: begin
+											 nextstate = EXECUTION;
+									 end
+                   4'b1011:	begin
+											nextstate = BEQ;//BEQ
+									 end
                    default: nextstate = FETCH;
                  endcase
         MEMADRCOMP:  case(Op)
@@ -199,7 +219,7 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUOp);
             ALUSrcA = 1'b1;
             ALUOp   = 2'b01;
             PCWriteCond = 1'b1;
-	    PCSource = 2'b01;
+	    			PCSource = 2'b01;
           end
       endcase
     end
@@ -256,10 +276,10 @@ PCSource, ALUSrcB, ALUSrcA, RegWrite, RegDst, PCSel, ALUCtrl, Op, Zero, cz);
   initial begin
         registers[0] = PCSTART;  // Initialize R0
         registers[1] = 16'h0003;  // Initialize R1
-        registers[2] = 16'h0006;  // Initialize R2
+        registers[2] = 16'h0007;  // Initialize R2
         registers[3] = 16'h0003;  // Initialize R3
         registers[4] = 16'h0006;  // Initialize R4
-        registers[5] = 16'hffff;  // Initialize R5
+        registers[5] = 16'h0006;  // Initialize R5
         registers[6] = 16'h0003;  // Initialize R6
         registers[7] = 16'h0007;  // Initialize R7
     end
@@ -272,7 +292,7 @@ always @(posedge clk or posedge reset) begin
 				// $display("At time %0t, registers[3] = %d", $time, registers[3]);
 				// $display("At time %0t, registers[2] = %d", $time, registers[2]);
 				// $display("At time %0t, registers[4] = %d", $time, registers[4]);
-				$display("At time %0t, registers[1] = %d", $time, registers[1]);
+				// $display("At time %0t, registers[1] = %d", $time, registers[1]);
 				end
 				// $display("At time %0t,ALUout= %d", $time,ALUOut);
     end
@@ -295,6 +315,8 @@ always @(posedge clk or posedge reset) begin
 
 	assign
 		MemData =(MemRead)? mem[address]:16'bx;
+
+	
 
 	//PC logic
 
@@ -319,6 +341,7 @@ always @(posedge clk or posedge reset) begin
 
 	//memory data register
 	always @(posedge clk) begin
+			// $display("Address=%d MemData=%d",address,MemData);
 		mdr <= MemData;
 	end
 
@@ -342,7 +365,7 @@ always @(posedge clk or posedge reset) begin
 		if (RegWrite)begin
 			if (RegDst)
 			begin
-				$display("op=%d  cz=%d",Op,cz);
+				// $display("op=%d  cz=%d",Op,cz);
 				case(Op)
 				4'b0000:
 				begin
@@ -350,7 +373,7 @@ always @(posedge clk or posedge reset) begin
 						2'b00:registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 						2'b10:
 						begin
-								$display("carry=%d ",Carry);
+								// $display("carry=%d ",Carry);
 								if(Carry==1'b1)begin
 								registers[Instruction[5:3]] <= (MemtoReg) ? mdr : ALUOut;
 								end
@@ -472,6 +495,8 @@ always @(posedge clk or posedge reset) begin
 
 	always@(posedge clk) begin
 		ALUOut<=ALUResult;
+		// $display("aluout is %d",ALUOut);
+		// $display("At time %0t, registers[1] = %d", $time, registers[1]);
 	end
 
 endmodule
