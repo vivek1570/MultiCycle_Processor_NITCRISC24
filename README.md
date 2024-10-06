@@ -56,3 +56,5 @@ This project implements a **multi-cycle processor** based on the **NITC-RISC24**
 
 - Multi-Cycle Processor Design Assignment (NITC-RISC24)
 - Verilog HDL for Simulation and Hardware Synthesis
+
+![alt text](image.png)
