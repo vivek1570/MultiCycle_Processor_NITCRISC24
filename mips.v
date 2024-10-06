@@ -1,4 +1,4 @@
-module mips(clk,reset);
+module NITC_RISC_24(clk,reset);
 
 	input clk,reset;
 

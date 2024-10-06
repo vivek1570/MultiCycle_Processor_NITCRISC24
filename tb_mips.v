@@ -3,7 +3,7 @@ module tb_mips;
 	reg clk;
 	reg reset;
 
-	mips mips_DUT(clk,reset);
+	NITC_RISC_24 DUT(clk,reset);
 
 	initial
 		forever #4 clk=~clk;
