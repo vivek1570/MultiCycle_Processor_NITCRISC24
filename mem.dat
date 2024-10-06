@@ -1,7 +1,8 @@
-a888 // lw r4,r2,8   1010 1000 1000 1000  here r4+8 and add  and calculate the value in that add add and add into r2
-0298 // add r3,r1,r2 0000 0010 1001 1000 here r2+r1 and store in r3
-0ba0 // add r4,r5,r6 0000 1011 1010 0000
-0000
+9446 // sw r1,r2,6   1001 0100 0100 0110  here r1->mem[r2+6]
+0298 // add r3,r1,r2 0000 0010 1001 1000 here r2+r1->r3 
+2c68 // ndu r5,r6,r1 0010 1100 0110 1000 ~(r6&r1)->r5
+a888 // lw r2,r4,8   1010 1000 1000 1000  here mem[r4+8]->r2 
+0ba2 // adc r4,r5,r6 0000 1011 1010 0010 r5+r6->r4 [only if carry=1]
 0000
 0000
 0000
@@ -11,10 +12,10 @@ a888 // lw r4,r2,8   1010 1000 1000 1000  here r4+8 and add  and calculate the v
 0000
 0001
 0002
-000a
-000d
+000f
+000a 
 000c
 0003
 0006
 0009
-0007
+// lw important lw r2,r4,8 then in real it changes to lw r4,r2,8 [this for correct reg reading]
